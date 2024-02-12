@@ -13,6 +13,9 @@ function Add_Activty() {
             .catch(error => console.error('Error fetching activities:', error));
     }, []);
 
+
+    
+
     return (
         <div>
             <div className="flex items-center gap-2 ml-1 mb-5">

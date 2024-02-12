@@ -196,19 +196,19 @@ app.get('/api/userO', (req, res) => {
 
 app.post('/activity', jsonParser, function (req, res) {
     connect.query(
-      'INSERT INTO actname(`act_Name`, `start_Date`, `location`, `amount`, `end_Date`) VALUES (?,?,?,?,?)',
-      [req.body.actName, req.body.startDate,req.body.location, req.body.amount, req.body.endDate],
-      function (err, results) {
-        if (err) {
-          console.error('Error inserting into database:', err);
-          res.status(500).json({ error: 'Internal Server Error' });
-        } else {
-          res.json(results);
+        'INSERT INTO actname(`act_Name`, `start_Date`, `location`, `amount`, `end_Date`) VALUES (?,?,?,?,?)',
+        [req.body.actName, req.body.startDate, req.body.location, req.body.amount, req.body.endDate],
+        function (err, results) {
+            if (err) {
+                console.error('Error inserting into database:', err);
+                res.status(500).json({ error: 'Internal Server Error' });
+            } else {
+                res.json(results);
+            }
         }
-      }
     );
-  });
-  
+});
+
 app.post('/actcode', jsonParser, function (req, res) {
     connect.query('INSERT INTO actcode(`act_Code`, `act_Name`) VALUES (?,?)',
         [req.body.actCode, req.body.actName],
@@ -236,49 +236,84 @@ app.get('/api/activity', (req, res) => {
     });
 });
 
+app.post('/api/check/:id/:code', (req, res) => {
+    const { code, id } = req.params;
+
+    // Check if the code exists in the actcode table
+    connect.query('SELECT * FROM actcode WHERE act_code = ?', [code], (err, result) => {
+        if (err) {
+            console.error('Error querying MySQL:', err);
+            res.status(500).send('Internal Server Error');
+            return;
+        }
+
+        // Check if there are any rows returned from the SELECT query
+        if (result.length === 0) {
+            res.status(404).send('Code not found in actcode table');
+            return;
+        }
+
+        // Code exists, proceed with the INSERT query
+        connect.query('INSERT INTO comfirmation (stdID, act_Code, status) VALUES (?, ?, 1)',
+            [id, code],
+            (errA, resultA) => {
+                if (errA) {
+                    console.error('Error querying MySQL:', errA);
+                    res.status(500).send('Internal Server Error');
+                    return;
+                } else {
+                    // Send both results in a single response
+                    res.json({ result, resultA });
+                }
+            });
+    });
+});
+
+
 app.post('/add_activity', (req, res) => {
     const { activityCode, activityName, cardCode } = req.body;
-  
+
     // Check if the activity code exists in the database
     const checkActivityQuery = `SELECT * FROM act_std WHERE activityCode = ?`;
-  
+
     connect.query(checkActivityQuery, [activityCode], (err, results) => {
-      if (err) {
-        console.error('Error checking activity:', err);
-        res.status(500).json({ error: 'Internal Server Error' });
-        return;
-      }
-  
-      if (results.length > 0) {
-        // Activity code exists, delete from the original table
-        const deleteQuery = `DELETE FROM act_std WHERE activityCode = ?`;
-  
-        connect.query(deleteQuery, [activityCode], (deleteErr, deleteResults) => {
-          if (deleteErr) {
-            console.error('Error deleting activity:', deleteErr);
+        if (err) {
+            console.error('Error checking activity:', err);
             res.status(500).json({ error: 'Internal Server Error' });
             return;
-          }
-  
-          // Insert into the new table
-          const insertQuery = `INSERT INTO new_table_name (activityCode, activityName, cardCode) VALUES (?, ?, ?)`;
-  
-          connect.query(insertQuery, [activityCode, activityName, cardCode], (insertErr, insertResults) => {
-            if (insertErr) {
-              console.error('Error inserting activity:', insertErr);
-              res.status(500).json({ error: 'Internal Server Error' });
-              return;
-            }
-  
-            res.status(200).json({ message: 'Activity added successfully' });
-          });
-        });
-      } else {
-        res.status(404).json({ error: 'Activity code not found' });
-      }
+        }
+
+        if (results.length > 0) {
+            // Activity code exists, delete from the original table
+            const deleteQuery = `DELETE FROM act_std WHERE activityCode = ?`;
+
+            connect.query(deleteQuery, [activityCode], (deleteErr, deleteResults) => {
+                if (deleteErr) {
+                    console.error('Error deleting activity:', deleteErr);
+                    res.status(500).json({ error: 'Internal Server Error' });
+                    return;
+                }
+
+                // Insert into the new table
+                const insertQuery = `INSERT INTO new_table_name (activityCode, activityName, cardCode) VALUES (?, ?, ?)`;
+
+                connect.query(insertQuery, [activityCode, activityName, cardCode], (insertErr, insertResults) => {
+                    if (insertErr) {
+                        console.error('Error inserting activity:', insertErr);
+                        res.status(500).json({ error: 'Internal Server Error' });
+                        return;
+                    }
+
+                    res.status(200).json({ message: 'Activity added successfully' });
+                });
+            });
+        } else {
+            res.status(404).json({ error: 'Activity code not found' });
+        }
     });
-  });
-  
+});
+
+
 
 app.listen(3333, jsonParser, function () {
     console.log('CORS-enabled web server listening on port 3333')
